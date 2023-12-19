@@ -1,0 +1,461 @@
+---
+title: "SWB Metrics Report"
+subtitle: "AIM-AHEAD FISMA"
+output:
+  word_document: default
+  pdf_document: default
+---
+
+
+
+```{r include = FALSE}
+#Download all entries from the following DynamoDB tables: 
+#- aim-prod-va-sw-Users
+#- aim-prod-va-sw-EnvironmentsSc
+#- Studies
+#- StudyPermissions
+
+users <- read.csv('aa-fisma-users.csv')
+workspaces <- read.csv('aa-fisma-environments.csv')
+studies <- read.csv('aa-fisma-studies.csv')
+studyperm <- read.csv('aa-fisma-studypermissions.csv')
+
+d1 <- read.csv('FISMA-PROD-FAILED.csv')
+d2 <- read.csv('FISMA-PROD-TERMINATED.csv')
+d3 <- read.csv('delete.csv')
+
+library(tidyverse)
+library(knitr)
+
+clean_list <- function(vec, sep, rep, newsep){
+  vec = gsub(pattern = sep, replacement = rep, x = vec)
+  vec = gsub(pattern = '[[:punct:]]', replacement = '', x = vec)
+  vec = gsub(pattern = paste0('S', rep), replacement = newsep, x = vec)
+  vec = gsub(pattern = paste0('^', newsep), replacement = '', x = vec)
+  return(vec)
+}
+
+# keep testing to show behind the scenes work
+remove_testing = FALSE
+
+# include deleted workspaces?
+include_deleted = TRUE
+
+if (include_deleted) {
+  #test <- rbind(workspaces, d1, d2, d3)
+}
+
+```
+
+```{r include = FALSE}
+# project groupings are manually generated
+
+project_groupings <- c('Admin' = 'Development & Testing',
+          'pilotgeorgeannawright' = 'AIM-AHEAD Hub Specific Pilot Project',
+          'PAIR2' = 'AIM-AHEAD Program for Artificial Intelligence Readiness',
+          'PAIR' = 'AIM-AHEAD Program for Artificial Intelligence Readiness',
+          'AdminTesting' = 'Development & Testing',
+          'ConsortiumDevelopmentProject' = 'AIM-AHEAD Consortium Development Project',
+          'Students' = 'Other Projects',
+          'AIMAHEADConsortiumGeneral' = 'AIM-AHEAD General Consortium Use, Training, & Demos',
+          'ResearchFellowshipC2' = 'AIM-AHEAD Research Fellowship Cohort 2',
+          'DBMIteaching' = 'AIM-AHEAD General Consortium Use, Training, & Demos',
+          'PilotBrianYorkgitis' = 'AIM-AHEAD Pilot Projects',
+          'PilotNiranjanCancerBias' = 'AIM-AHEAD Pilot Projects',
+          'DataInfrastructureandCapacityBuilding' =  'Data Infrastructure and Capacity Building',
+          'PilotTamilMedCognetics' = 'AIM-AHEAD Pilot Projects',
+          'ResearchFellowship' = 'AIM-AHEAD Research Fellowship Cohort 1',
+          'DSTCPRIME' = 'DSTC Prime Fellowship',
+          'PilotCartwrightGunviolence' = 'AIM-AHEAD Pilot Projects', 
+          'tianxiharmonization2' = 'Other Projects',
+          'testingteaching' = 'AIM-AHEAD General Consortium Use, Training, & Demos',
+          'LeadershipFellowship' = 'AIM-AHEAD Leadership Fellowships',
+          'aimaheadswbprod' = 'Development & Testing') %>% 
+  as.data.frame() 
+colnames(project_groupings) <- "Project_Group"
+project_groupings$projectId = rownames(project_groupings)
+
+```
+
+```{r include = FALSE}
+
+users_clean <- users %>% 
+  select(uid, firstName, lastName, email, username, applyReason, 
+         projectId, status,  userRole,
+         createdAt, acceptedTerms, identityProviderName, isAdmin) %>%
+  mutate(createdAt = date(createdAt), 
+         acceptedTerms = ifelse(acceptedTerms == '', NA, acceptedTerms),
+         acceptedTerms = date(acceptedTerms),
+         projectId = clean_list(projectId, sep = ':', rep = 'XXX', newsep = ', ')) 
+
+user_mapping <- users_clean %>% 
+  select(uid, username) %>%
+  mutate(uid = clean_list(uid, '', '', ''))
+
+```
+
+```{r include = FALSE}
+
+
+# workspace mapping manually generated based on default configurations
+workspace_mapping <- read.csv('workspace_mapping.csv') %>% 
+  mutate(workspace_name = tolower(workspace_name),
+         workspace_name = clean_list(workspace_name, sep = '', rep = '', newsep = ''))
+
+workspaces_clean <- workspaces %>% 
+  select(id, name, createdAt, createdBy, description, outputs,
+         envTypeConfigId, indexId,  projectId, status, studyIds, updatedAt) %>%
+  mutate(createdAt = date(createdAt),
+         updatedAt = date(updatedAt), 
+         projectId = gsub(pattern = '[[:punct:]]', replacement = '', x = projectId),
+         studyIds = clean_list(studyIds, sep = ':', rep = 'XXX', newsep = ', '),
+         envTypeConfigId = tolower(envTypeConfigId), 
+         envTypeConfigId = clean_list(envTypeConfigId, sep = '', rep = '', newsep = '')) %>%
+  left_join(users_clean %>% select(uid, username), by = c('createdBy' = 'uid')) %>%
+  left_join(workspace_mapping, by = c('envTypeConfigId' = 'workspace_name'))   %>% 
+  left_join(project_groupings) 
+
+if(remove_testing){
+  workspaces_clean <- workspaces_clean %>% filter(Project_Group != "Testing")
+}
+
+
+```
+
+```{r include = FALSE}
+studies_clean <- studies %>%
+  select(id, accessType, bucket, category, createdAt, description, folder, name, projectId, updatedAt) %>%
+  mutate(createdAt = date(createdAt), 
+         updatedAt = date(updatedAt))
+
+if(remove_testing){
+  studies_clean <- studies_clean %>% filter(!projectId %in% c('testing-research', 'testing-teaching'))
+}
+
+```
+
+```{r include = FALSE}
+studyperm_clean <- studyperm %>%
+  select(id, adminAccess, adminUsers, createdAt, readonlyAccess, readonlyUsers, readwriteAccess, readwriteUsers,
+         recordType, uid, writeonlyAccess, writeonlyUsers) %>%
+    mutate(createdAt = date(createdAt),
+         adminAccess = clean_list(adminAccess, sep = ':', rep = 'XXX', newsep = ', '),
+         adminUsers = clean_list(adminUsers, sep = ':', rep = 'XXX', newsep = ', '),
+         readonlyAccess = clean_list(readonlyAccess, sep = ':', rep = 'XXX', newsep = ', '),
+         readonlyUsers = clean_list(readonlyUsers, sep = ':', rep = 'XXX', newsep = ', '),
+         readwriteAccess = clean_list(readwriteAccess, sep = ':', rep = 'XXX', newsep = ', '),
+         readwriteUsers = clean_list(readwriteUsers, sep = ':', rep = 'XXX', newsep = ', '),
+         writeonlyAccess = clean_list(writeonlyAccess, sep = ':', rep = 'XXX', newsep = ', '),
+         writeonlyUsers = clean_list(writeonlyUsers, sep = ':', rep = 'XXX', newsep = ', '))
+
+study_only_perm <- studyperm_clean %>%
+  filter(recordType == 'study') %>%
+  left_join(user_mapping, by = c('adminUsers' = 'uid')) %>%
+  rename(adminUsernames = username) %>%
+  left_join(user_mapping, by = c('readonlyUsers' = 'uid')) %>%
+  rename(readonlyUsernames = username) %>%
+  left_join(user_mapping, by = c('readwriteUsers' = 'uid')) %>% 
+  rename(readwriteUsernames = username) %>%
+  left_join(user_mapping, by = c('writeonlyUsers' = 'uid')) %>%
+  rename(writeonlyUsernames = username) %>%
+  select(id, createdAt, adminUsernames, readonlyUsernames, readwriteUsernames, writeonlyUsernames) %>%
+  mutate(id = gsub('Study:', '', id))
+
+users_only_perm <- studyperm_clean %>%
+  filter(recordType == 'user') %>% 
+  left_join(users_clean %>% select(uid, username), by = c('uid' = 'uid')) %>%
+  select(id, username, adminAccess, readonlyAccess, readwriteAccess, writeonlyAccess)
+
+```
+
+```{r echo = FALSE}
+# Service Workbench Metrics report
+
+print(paste0('generated ', date()))
+
+```
+
+
+# User Summary
+
+### How many users are in Service Workbench?
+
+Active users have been approved by an administrator and assigned to a project.
+
+Inactive users are pending verification of AIM-AHEAD affiliation. 
+
+
+
+```{r echo = FALSE}
+# users by status
+# TABLE
+# users_clean %>%
+#   group_by(status) %>%
+#   mutate(status = gsub('pending', 'inactive', status)) %>%
+#   summarise(n = n_distinct(uid)) %>% 
+#   kable(caption = 'Number of users by status',
+#         col.names = c("User Status", "Number of Users"), 
+#         align = 'l')
+
+# PIE CHART
+users_clean %>%
+  group_by(status) %>%
+  mutate(status = gsub('pending|inactive', 'Pending verification of AIM-AHEAD affiliation', status),
+         status = gsub('active', 'Active', status)) %>%
+  summarise(n = n_distinct(uid)) %>% 
+  ggplot(aes(x="", y=n, fill=status)) +
+    geom_col() +
+    geom_text(aes(label = paste0(n, ' users')),
+            position = position_stack(vjust = 0.5)) +
+    coord_polar(theta = "y") +
+    theme_void() +
+    labs(fill = "User Status",
+         title = "Number of users by status",
+         subtitle = paste0(n_distinct(users_clean$uid), ' total users'))
+  
+
+```
+
+\newpage
+
+### What projects are our users working on?
+
+Service Workbench organizes users into *projects*. These allow us to categorize users, organize billing for computational resources and storage, and see at a high level who is using the platform.
+
+In this report, projects are further organized into *project groups* to demonstrate the main user groups in AIM AHEAD SWB. The Project ID references the more granluar project designation.
+
+```{r include = FALSE}
+# users_clean %>%
+#   select(projectId, username) %>%
+#   separate_rows(projectId, sep = ', ') %>%
+#   left_join(project_groupings) %>%
+#   mutate(Project_Group = ifelse(is.na(Project_Group), 'Unassigned', Project_Group)) %>%
+#   group_by(Project_Group) %>%
+#   summarise(n = n()) %>%
+#   ggplot(aes(x="", y=n, fill=Project_Group)) +
+#     geom_col() +
+#     geom_text(aes(label = paste0(n, ' users')),
+#             position = position_stack(vjust = 0.5)) +
+#     coord_polar(theta = "y") +
+#     theme_void() +
+#     labs(fill = "User Projects",
+#          title = "Number of users by project",
+#          subtitle = paste0(n_distinct(users_clean$uid), ' total users'))
+
+```
+
+```{r echo = FALSE}
+t <- users_clean %>%
+  select(projectId, username) %>%
+  separate_rows(projectId, sep = ', ') %>%
+  left_join(project_groupings) %>%
+  mutate(Project_Group = ifelse(is.na(Project_Group), 'Pending verification of AIM-AHEAD affiliation', Project_Group)) %>%
+  group_by(Project_Group) %>%
+  summarise(n_users = n_distinct(username)) %>% 
+  arrange(desc(n_users)) %>%
+  unique()
+t$Project_Group <- factor(t$Project_Group, levels = unique(t$Project_Group))
+t %>%
+  ggplot(aes(x = Project_Group, y = n_users, fill = Project_Group)) +
+    geom_bar(stat = 'identity') +
+    geom_text(aes(label=n_users), vjust = -.5) + 
+    theme_bw() +
+    theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5), 
+          legend.position = 'none') + 
+    labs(x = 'Project Group', y = 'Number of Users',
+         title = 'Number of unique users per project group', 
+         subtitle = "Note that users may be assigned to multiple projects") +
+    ylim(c(0, max(t$n_users) + 10)) +
+  scale_x_discrete(labels = function(x) str_wrap(x, width = 30))
+  
+```
+
+
+### Detailed breakdown of Project Groups
+
+For more information on what projects make up the Project Groups visualized in the above chart, see the table below:
+
+
+```{r echo = FALSE}
+project_groupings %>% 
+  arrange(Project_Group) %>%
+  kable(row.names = FALSE)
+
+```
+
+### User growth over time
+```{r echo = FALSE}
+user_growth <- users_clean %>% 
+  select(username, createdAt) %>%
+  mutate(month_created = format(createdAt, "%b %Y"))
+
+min_date <- min(user_growth$createdAt)
+max_date <- max(user_growth$createdAt)
+dates <- seq.Date(min_date, max_date, by = 'day') %>% format('%b %Y') %>% unique() %>%
+  factor(seq.Date(min_date, max_date, by = 'day') %>% format('%b %Y') %>% unique())
+add <- data.frame(month_created = dates[!dates %in%user_growth$month_created],
+                  n = 0)
+
+user_growth_summary <- user_growth %>%
+  group_by(month_created) %>%
+  summarise(n = n())%>%
+  rbind(add) 
+
+
+ggplot(user_growth_summary) +
+  geom_bar(aes(x = dates, y = n), stat = 'identity') +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 0.95), 
+          legend.position = 'none') +
+  labs(x = 'Month', y = 'Number of Users Added',
+         title = 'Number of users added per Month')
+
+ggplot(user_growth_summary) +
+  geom_bar(aes(x = dates, y = cumsum(n)), stat = 'identity') +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 0.95), 
+          legend.position = 'none') +
+  labs(x = 'Month', y = 'Number of Users',
+         title = 'Number of total users  over time')
+
+
+```
+
+
+\newpage
+
+# Workspace Summary
+
+### What types of workspaces are being used?
+
+Workspaces are the foundation of a user's interaction with Service Workbench. 
+
+- **SageMaker** workspaces provide users with a Jupyter Notebook interface where they have access to the following:
+  - User-friendly file explorer
+  - R coding in Jupyter Notebooks
+  - python coding in Jupyter Notebooks
+  - Terminal access
+  
+- **Rstudio** workspaces provide users who code in R an Rstudio interface to easily write analyses. This workspace type also provides users with access to:
+  - User-friendly file explorer
+  - R coding in .R or .Rmd files
+  - Terminal access
+  
+- **Linux** workspaces provide users access to ssh into a linux machine. Users can also use linux workspaces to upload large files to S3 storage. 
+
+- **Windows** workspaces provide users acess to a Windows virtual desktop. These workspaces are frequently used by users accessing OCHIN data, as they provide access to the SQL Server Management Studio app that allows users to investigate and query the patient level data. 
+
+This workspace breakdown demonstrates which workspaces are most used. 
+
+Sagemaker tends to be the most popular workspace for researchers as it provides a simple, Jupyter Notebook interface where users can code in R or python.
+
+
+
+
+```{r echo = FALSE}
+workspaces_clean %>%
+  mutate(type = gsub(x = envTypeConfigId, '-.*$|_.*$', ''), 
+         type = str_to_upper(type), 
+                  type = ifelse(grepl('RSTUDIO', type), 'RSTUDIO', 
+                             ifelse(grepl('SAGEMAKER|RAPIDS|TEST', type), 'SAGEMAKER', 
+                                          ifelse(grepl('WINDOWS', type), 'WINDOWS', 
+                                                       ifelse(grepl('LINUX', type), 'LINUX', 'OTHER'))))) %>%
+  group_by(type) %>%
+  summarise(n_workspaces = n_distinct(id)) %>%
+  ggplot(aes(x="", y=n_workspaces, fill=type)) +
+    geom_col() +
+    geom_text(aes(label = n_workspaces),
+            position = position_stack(vjust = 0.5)) +
+    coord_polar(theta = "y") +
+    theme_void() +
+    labs(fill = "Workspace Type",
+         title = "Number of workspaces recently used",
+         subtitle = paste0(n_distinct(workspaces_clean$id), ' total workspaces recently used')) 
+ 
+```
+
+\newpage
+
+# Which users are using which workspaces?
+
+The following chart shows the breakdown of workspaces per project. 
+
+The large amount of testing workspaces demonstrates the constant need for QA as we develop new features and maintain the infrastructure services. 
+
+Users in the AIM AHEAD Research Fellowship use Windows workspaces to explore the patient level OCHIN data, and tend to use Sagemaker for analysis.
+
+```{r echo = FALSE}
+
+w <- workspaces_clean %>%
+  mutate(type = gsub(x = envTypeConfigId, '-.*$|_.*$', ''), 
+         type = str_to_upper(type),
+         type = ifelse(grepl('RSTUDIO', type), 'RSTUDIO', 
+                             ifelse(grepl('SAGEMAKER|RAPIDS|TEST', type), 'SAGEMAKER', 
+                                          ifelse(grepl('WINDOWS', type), 'WINDOWS', 
+                                                       ifelse(grepl('LINUX', type), 'LINUX', 'OTHER'))))) %>%
+  group_by(type, Project_Group) %>%
+  summarise(n_workspaces = n_distinct(id)) %>%
+  arrange(desc(n_workspaces))
+
+ww <- w %>% group_by(Project_Group) %>% summarise(n = sum(n_workspaces)) %>% arrange(desc(n))
+
+w$Project_Group <- factor(w$Project_Group, levels = ww$Project_Group)
+
+w %>%
+  ggplot(aes(x = Project_Group, y=n_workspaces, fill=type)) +
+    geom_col() +
+    geom_text(aes(label = n_workspaces), position = position_stack(vjust = 0.5)) +
+    theme_bw() +
+    theme(axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.5)) +
+    labs(x = 'Project Group', y = 'Number of Users', fill = "Workspace Type",
+          title = 'Number of workspaces per project', 
+          subtitle = paste0(n_distinct(workspaces_clean$id), ' total workspaces recently used')) +
+  scale_x_discrete(labels = function(x) str_wrap(x, width = 20))
+
+
+
+```
+
+\newpage
+
+# Computational Resource Summary
+
+The following summaries represent the computational resources provided & used by Service Workbench users. 
+
+This is a rough estimate based on workspace types. A more accurate representation based on instance types is in development for 2024. 
+
+Computational resources provided per group:
+```{r echo = FALSE}
+cr <- workspaces_clean %>%
+  group_by(Project_Group) %>% 
+  summarise(n_CPU = sum(CPU, na.rm = TRUE) ,n_GPU = sum(GPU, na.rm = TRUE),n_RAM = sum(RAM, na.rm = TRUE)) 
+
+cr %>% 
+  kable(col.names = c("Project Group", "Number of CPUs", "Number of GPUs", "Amount of RAM (GiB)")) 
+
+
+paste0("In total, AIM AHEAD FISMA SWB made: \n\t", 
+       sum(cr$n_CPU, na.rm = TRUE), " CPUs, \n\t", 
+       sum(cr$n_GPU, na.rm = TRUE), " GPUs, and \n\t", 
+       sum(cr$n_RAM, na.rm = TRUE), " GiB RAM\n",
+       " available to users as of ", 
+       date()) %>% writeLines()
+
+cr_peruser <- cr %>%
+  left_join(t) %>%
+  mutate(CPU_perc = format(n_CPU / n_users, digits = 2),
+         GPU_perc = format(n_GPU / n_users, digits = 2), 
+         RAM_perc = format(n_RAM / n_users, digits = 2)) %>%
+  select(Project_Group, CPU_perc, GPU_perc, RAM_perc) %>%
+  kable(col.names = c('Project Group', 'Number of CPUs per User', 'Number of GPUs per User', 'Amount of RAM (GiB) per User'))
+cr_peruser
+  
+
+```
+
+
+
+
+
+
+
