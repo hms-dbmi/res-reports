@@ -4,6 +4,8 @@ subtitle: "AIM-AHEAD FISMA"
 output:
   word_document: default
   pdf_document: default
+  html_document:
+    df_print: paged
 ---
 
 
@@ -15,14 +17,14 @@ output:
 #- Studies
 #- StudyPermissions
 
-users <- read.csv('aa-fisma-users.csv')
-workspaces <- read.csv('aa-fisma-environments.csv')
-studies <- read.csv('aa-fisma-studies.csv')
-studyperm <- read.csv('aa-fisma-studypermissions.csv')
+users <- read.csv('../db-exports/aa-fisma-users.csv')
+workspaces <- read.csv('../db-exports/aa-fisma-environments.csv')
+studies <- read.csv('../db-exports/aa-fisma-studies.csv')
+studyperm <- read.csv('../db-exports/aa-fisma-studypermissions.csv')
 
-d1 <- read.csv('FISMA-PROD-FAILED.csv')
-d2 <- read.csv('FISMA-PROD-TERMINATED.csv')
-d3 <- read.csv('delete.csv')
+d1 <- read.csv('../db-exports/FISMA-PROD-FAILED.csv')
+d2 <- read.csv('../db-exports/FISMA-PROD-TERMINATED.csv')
+d3 <- read.csv('../db-exports/delete.csv')
 
 library(tidyverse)
 library(knitr)
@@ -98,7 +100,7 @@ user_mapping <- users_clean %>%
 
 
 # workspace mapping manually generated based on default configurations
-workspace_mapping <- read.csv('workspace_mapping.csv') %>% 
+workspace_mapping <- read.csv('../mappings/workspace_mapping.csv') %>% 
   mutate(workspace_name = tolower(workspace_name),
          workspace_name = clean_list(workspace_name, sep = '', rep = '', newsep = ''))
 
@@ -299,11 +301,14 @@ add <- data.frame(month_created = dates[!dates %in%user_growth$month_created],
 user_growth_summary <- user_growth %>%
   group_by(month_created) %>%
   summarise(n = n())%>%
-  rbind(add) 
+  rbind(add) %>%
+  arrange(factor(month_created, levels = dates))
+
+user_growth_summary$month_created <- factor(user_growth_summary$month_created, levels = dates)
 
 
 ggplot(user_growth_summary) +
-  geom_bar(aes(x = dates, y = n), stat = 'identity') +
+  geom_bar(aes(x = month_created, y = n), stat = 'identity') +
   theme_bw() +
   theme(axis.text.x = element_text(angle = 45, hjust = 0.95), 
           legend.position = 'none') +
@@ -311,12 +316,12 @@ ggplot(user_growth_summary) +
          title = 'Number of users added per Month')
 
 ggplot(user_growth_summary) +
-  geom_bar(aes(x = dates, y = cumsum(n)), stat = 'identity') +
+  geom_bar(aes(x = month_created, y = cumsum(n)), stat = 'identity') +
   theme_bw() +
   theme(axis.text.x = element_text(angle = 45, hjust = 0.95), 
           legend.position = 'none') +
   labs(x = 'Month', y = 'Number of Users',
-         title = 'Number of total users  over time')
+         title = 'Number of total users over time')
 
 
 ```
