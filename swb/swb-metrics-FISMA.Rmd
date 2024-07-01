@@ -22,9 +22,9 @@ workspaces <- read.csv('../db-exports/aa-fisma-environments.csv')
 studies <- read.csv('../db-exports/aa-fisma-studies.csv')
 studyperm <- read.csv('../db-exports/aa-fisma-studypermissions.csv')
 
-d1 <- read.csv('../db-exports/FISMA-PROD-FAILED.csv')
-d2 <- read.csv('../db-exports/FISMA-PROD-TERMINATED.csv')
-d3 <- read.csv('../db-exports/delete.csv')
+#d1 <- read.csv('../db-exports/FISMA-PROD-FAILED.csv')
+#d2 <- read.csv('../db-exports/FISMA-PROD-TERMINATED.csv')
+#d3 <- read.csv('../db-exports/delete.csv')
 
 library(tidyverse)
 library(knitr)
@@ -70,9 +70,11 @@ project_groupings <- c('Admin' = 'Development & Testing',
           'DSTCPRIME' = 'DSTC Prime Fellowship',
           'PilotCartwrightGunviolence' = 'AIM-AHEAD Pilot Projects', 
           'tianxiharmonization2' = 'Other Projects',
+          'AWS' = 'Other Projects',
           'testingteaching' = 'AIM-AHEAD General Consortium Use, Training, & Demos',
           'LeadershipFellowship' = 'AIM-AHEAD Leadership Fellowships',
-          'aimaheadswbprod' = 'Development & Testing') %>% 
+          'aimaheadswbprod' = 'Development & Testing',
+          'ConsortiumPilotProject' = 'Consortium Pilot Project') %>% 
   as.data.frame() 
 colnames(project_groupings) <- "Project_Group"
 project_groupings$projectId = rownames(project_groupings)
@@ -98,15 +100,9 @@ user_mapping <- users_clean %>%
 
 ```{r include = FALSE}
 
-
-# workspace mapping manually generated based on default configurations
-workspace_mapping <- read.csv('../mappings/workspace_mapping.csv') %>% 
-  mutate(workspace_name = tolower(workspace_name),
-         workspace_name = clean_list(workspace_name, sep = '', rep = '', newsep = ''))
-
 workspaces_clean <- workspaces %>% 
   select(id, name, createdAt, createdBy, description, outputs,
-         envTypeConfigId, indexId,  projectId, status, studyIds, updatedAt) %>%
+         envTypeConfigId, indexId,  projectId, status, studyIds, updatedAt, instanceType) %>%
   mutate(createdAt = date(createdAt),
          updatedAt = date(updatedAt), 
          projectId = gsub(pattern = '[[:punct:]]', replacement = '', x = projectId),
@@ -114,7 +110,6 @@ workspaces_clean <- workspaces %>%
          envTypeConfigId = tolower(envTypeConfigId), 
          envTypeConfigId = clean_list(envTypeConfigId, sep = '', rep = '', newsep = '')) %>%
   left_join(users_clean %>% select(uid, username), by = c('createdBy' = 'uid')) %>%
-  left_join(workspace_mapping, by = c('envTypeConfigId' = 'workspace_name'))   %>% 
   left_join(project_groupings) 
 
 if(remove_testing){
@@ -389,7 +384,7 @@ The large amount of testing workspaces demonstrates the constant need for QA as 
 
 Users in the AIM AHEAD Research Fellowship use Windows workspaces to explore the patient level OCHIN data, and tend to use Sagemaker for analysis.
 
-```{r echo = FALSE}
+```{r echo = FALSE, out.width = "150%"}
 
 w <- workspaces_clean %>%
   mutate(type = gsub(x = envTypeConfigId, '-.*$|_.*$', ''), 
@@ -427,13 +422,14 @@ w %>%
 
 The following summaries represent the computational resources provided & used by Service Workbench users. 
 
-This is a rough estimate based on workspace types. A more accurate representation based on instance types is in development for 2024. 
-
 Computational resources provided per group:
 ```{r echo = FALSE}
+instance_mapping <- read.csv('../mappings/instance_type_mapping.csv')
+
 cr <- workspaces_clean %>%
+  left_join(instance_mapping) %>%
   group_by(Project_Group) %>% 
-  summarise(n_CPU = sum(CPU, na.rm = TRUE) ,n_GPU = sum(GPU, na.rm = TRUE),n_RAM = sum(RAM, na.rm = TRUE)) 
+  summarise(n_CPU = sum(n_cpu, na.rm = TRUE) ,n_GPU = sum(n_gpu, na.rm = TRUE),n_RAM = sum(n_ram, na.rm = TRUE)) 
 
 cr %>% 
   kable(col.names = c("Project Group", "Number of CPUs", "Number of GPUs", "Amount of RAM (GiB)")) 
