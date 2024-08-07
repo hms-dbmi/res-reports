@@ -1,3 +1,6 @@
-db-exports/*
-mappings/*
+*.DS_Store
+*.RData
+*.Rhistory
+*db-exports/*
+*mappings/*
 *.docx

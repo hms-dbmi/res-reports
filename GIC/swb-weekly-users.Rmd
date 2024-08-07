@@ -1,0 +1,54 @@
+---
+title: "SWB Weekly Users"
+subtitle: "AIM-AHEAD FISMA"
+output:
+  word_document: default
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+
+
+
+```{r include = FALSE}
+#Download all entries from the following DynamoDB tables: 
+#- aim-prod-va-sw-Users
+
+users <- read.csv('../db-exports/aa-fisma-users.csv')
+
+library(tidyverse)
+library(knitr)
+
+```
+
+
+```{r echo = FALSE}
+internal_users <- read.csv('../mappings/internal_users.csv')
+
+users %>%
+  filter(status == 'active',
+         !email %in% internal_users$email) %>%
+  pull(email) %>%
+  n_distinct()
+
+#users_time <- users %>%
+#  filter(status == 'active',
+#         !email %in% internal_users$email) %>%
+#  mutate(created_week = format(date(createdAt), '%V'))
+  
+
+```
+
+We need number of users per week
+```{r}
+users_date <- users %>%
+  mutate(dateCreated = as_date(createdAt)) %>%
+  arrange(desc(dateCreated)) %>%
+  select(username, dateCreated)
+
+```
+
+
+
+
+
