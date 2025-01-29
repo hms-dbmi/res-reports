@@ -357,7 +357,7 @@ workspaces_clean %>%
   mutate(type = gsub(x = envTypeConfigId, '-.*$|_.*$', ''), 
          type = str_to_upper(type), 
                   type = ifelse(grepl('RSTUDIO', type), 'RSTUDIO', 
-                             ifelse(grepl('SAGEMAKER|RAPIDS|TEST', type), 'SAGEMAKER', 
+                             ifelse(grepl('SAGEMAKER|RAPIDS|TEST|KHALIFALLM|FILIENKO', type), 'SAGEMAKER', 
                                           ifelse(grepl('WINDOWS', type), 'WINDOWS', 
                                                        ifelse(grepl('LINUX', type), 'LINUX', 'OTHER'))))) %>%
   group_by(type) %>%
@@ -390,7 +390,7 @@ w <- workspaces_clean %>%
   mutate(type = gsub(x = envTypeConfigId, '-.*$|_.*$', ''), 
          type = str_to_upper(type),
          type = ifelse(grepl('RSTUDIO', type), 'RSTUDIO', 
-                             ifelse(grepl('SAGEMAKER|RAPIDS|TEST', type), 'SAGEMAKER', 
+                             ifelse(grepl('SAGEMAKER|RAPIDS|TEST|KHALIFALLM', type), 'SAGEMAKER', 
                                           ifelse(grepl('WINDOWS', type), 'WINDOWS', 
                                                        ifelse(grepl('LINUX', type), 'LINUX', 'OTHER'))))) %>%
   group_by(type, Project_Group) %>%
