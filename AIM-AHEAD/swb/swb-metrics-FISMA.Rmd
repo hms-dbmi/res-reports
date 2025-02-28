@@ -503,14 +503,44 @@ w %>%
 
 # Computational Resource Summary
 
-The following summaries represent the computational resources provided & used by Service Workbench users. 
+The following summaries represent the computational resources provided & used by Service Workbench users since February 2023. 
 
 Computational resources provided per group:
 ```{r echo = FALSE}
 instance_mapping <- read.csv('../mappings/instance_type_mapping.csv')
 
-cr <- workspaces_clean %>%
+d4 <- read.csv('../db-exports/deleted-instances/TERMINATING_FAILED-deletedJan2025csv.csv') %>%
+  select(id, name, createdAt, createdBy, description, 
+         envTypeConfigId, indexId,  projectId, status, studyIds, updatedAt, instanceType)
+d5 <- read.csv('../db-exports/deleted-instances/STARTING_FAILED-deletedJan2025.csv') %>%
+  select(id, name, createdAt, createdBy, description, 
+         envTypeConfigId, indexId,  projectId, status, studyIds, updatedAt, instanceType)
+d6 <- read.csv('../db-exports/deleted-instances/STOPPING_FAILED-deletedJan2025.csv') %>%
+  select(id, name, createdAt, createdBy, description, 
+         envTypeConfigId, indexId,  projectId, status, studyIds, updatedAt, instanceType)
+d7 <- read.csv('../db-exports/deleted-instances/FAILED-deletedJan2025.csv') %>%
+  select(id, name, createdAt, createdBy, description, 
+         envTypeConfigId, indexId,  projectId, status, studyIds, updatedAt, instanceType)
+
+dd <- rbind(d4, d5, d6, d7) %>%
+  mutate(createdAt = date(createdAt),
+         updatedAt = date(updatedAt), 
+         projectId = gsub(pattern = '[[:punct:]]', replacement = '', x = projectId),
+         studyIds = clean_list(studyIds, sep = ':', rep = 'XXX', newsep = ', '),
+         envTypeConfigId = tolower(envTypeConfigId), 
+         envTypeConfigId = clean_list(envTypeConfigId, sep = '', rep = '', newsep = '')) %>%
+  left_join(users_clean %>% select(uid, username), by = c('createdBy' = 'uid')) %>%
+  left_join(project_groupings) 
+
+workspaces_removed_clean <- rbind(workspaces_clean %>% filter(status == "TERMINATED") %>% select(-outputs),
+                                  dd)
+
+all_data <- rbind(workspaces_clean %>% filter(status != 'TERMINATED') %>% select(-outputs),
+                  workspaces_removed_clean)
+
+cr <- all_data %>%
   left_join(instance_mapping) %>%
+  mutate(Project_Group = replace_na(Project_Group, 'Other Projects')) %>%
   group_by(Project_Group) %>% 
   summarise(n_CPU = sum(n_cpu, na.rm = TRUE) ,n_GPU = sum(n_gpu, na.rm = TRUE),n_RAM = sum(n_ram, na.rm = TRUE)) 
 
