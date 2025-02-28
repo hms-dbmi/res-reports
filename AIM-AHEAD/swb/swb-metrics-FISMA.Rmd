@@ -215,7 +215,7 @@ users_clean %>%
          title = paste0("Number of users by status; ", n_distinct(users_clean$uid), ' total users'))
 
 print(paste0(inactive, 
-             ' users did not respond to follow-ups regarding AIM-AHEAD affiliation and have been removed. They are not represented in this chart.'))
+             ' users did not respond to follow-ups regarding AIM-AHEAD affiliation and have been removed. They are not represented in this or following charts.'))
   
 
 ```
@@ -356,9 +356,8 @@ This workspace breakdown demonstrates which workspaces are most used.
 
 Sagemaker tends to be the most popular workspace for researchers as it provides a simple, Jupyter Notebook interface where users can code in R or python.
 
-
-
-
+**Note**
+This plot may be misleading as it includes Terminated workspaces that are not in use. Additionally, it does not include workspaces we have completely deleted from the database due to limitations on the total number of workspaces.'
 ```{r echo = FALSE}
 workspaces_clean %>%
   mutate(type = gsub(x = envTypeConfigId, '-.*$|_.*$', ''), 
@@ -376,9 +375,86 @@ workspaces_clean %>%
     coord_polar(theta = "y") +
     theme_void() +
     labs(fill = "Workspace Type",
-         title = "Number of workspaces recently used",
-         subtitle = paste0(n_distinct(workspaces_clean$id), ' total workspaces recently used')) 
+         title = "Number of workspaces created since 2023",
+         subtitle = paste0(n_distinct(workspaces_clean$id), ' total workspaces created since 2023.')) 
  
+```
+The below plot is a more accurate representation of the number of workspaces that have recently been used. 
+It does not include terminated or deleted workspaces.
+```{r}
+workspaces_clean %>%
+  mutate(type = gsub(x = envTypeConfigId, '-.*$|_.*$', ''), 
+         type = str_to_upper(type), 
+                  type = ifelse(grepl('RSTUDIO', type), 'RSTUDIO', 
+                             ifelse(grepl('SAGEMAKER|RAPIDS|TEST|KHALIFALLM|FILIENKO', type), 'SAGEMAKER', 
+                                          ifelse(grepl('WINDOWS', type), 'WINDOWS', 
+                                                       ifelse(grepl('LINUX', type), 'LINUX', 'OTHER'))))) %>%
+  filter(status != "TERMINATED") %>%
+  group_by(type) %>%
+  summarise(n_workspaces = n_distinct(id)) %>%
+  ggplot(aes(x="", y=n_workspaces, fill=type)) +
+    geom_col() +
+    geom_text(aes(label = n_workspaces),
+            position = position_stack(vjust = 0.5)) +
+    coord_polar(theta = "y") +
+    theme_void() +
+    labs(fill = "Workspace Type",
+         title = "Number of workspaces recently used",
+         subtitle = paste0(workspaces_clean %>% filter(status != 'TERMINATED') %>% pull(id) %>% n_distinct, ' total workspaces recently used')) 
+ 
+
+```
+
+\newpage
+
+There are a number of workspaces that have been deleted due to Termination (user finished with the workspace) or Errors (workspace encountered an error). Those workspaces are listed here for transparency but are no longer included in the overall metrics report, since they are no longer in use. 
+```{r echo= FALSE}
+
+
+d1 <- read.csv('../db-exports/deleted-instances/FAILED-deletedSept2023.csv') %>% select(name, description, createdAt)
+d2 <- read.csv('../db-exports/deleted-instances/TERMINATED-deletedSept2023.csv') %>% select(name, description, createdAt)
+d3 <- read.csv('../db-exports/deleted-instances/deletedOct2023.csv') %>% select(name, description, createdAt)
+d4 <- read.csv('../db-exports/deleted-instances/TERMINATING_FAILED-deletedJan2025csv.csv') %>% select(name, description, createdAt)
+d5 <- read.csv('../db-exports/deleted-instances/STARTING_FAILED-deletedJan2025.csv') %>% select(name, description, createdAt)
+d6 <- read.csv('../db-exports/deleted-instances/STOPPING_FAILED-deletedJan2025.csv') %>% select(name, description, createdAt)
+d7 <- read.csv('../db-exports/deleted-instances/FAILED-deletedJan2025.csv') %>% select(name, description, createdAt) 
+
+terminated <- workspaces_clean %>% filter(status == "TERMINATED") %>% select(name, description, createdAt) %>% mutate(createdAt = as.character(createdAt))
+
+dd <- rbind(d1, d2, d3, d4, d5, d6, d7, terminated) %>%
+  mutate(test_workspace = ifelse(grepl('test|BMI', name, ignore.case = TRUE), 'test', 
+                                  ifelse(grepl('test|BMI', description, ignore.case = TRUE), 'test', '')), 
+         createdAt = as.Date(createdAt),
+         month_created = format(createdAt, "%b %Y"))
+
+print(paste0("Note that the plots above and below do not include the ", nrow(dd), " deleted, terminated, & inactive workspaces"))
+
+
+rm(d1, d2, d3, d4, d5, d6, d7)
+
+min_date <- min(dd$createdAt, na.rm = TRUE)
+max_date <- max(dd$createdAt, na.rm = TRUE)
+dates <- seq.Date(min_date, max_date, by = 'day') %>% format('%b %Y') %>% unique() %>%
+  factor(seq.Date(min_date, max_date, by = 'day') %>% format('%b %Y') %>% unique())
+add <- data.frame(month_created = dates[!dates %in%dd$month_created], n = 0)
+
+dd_sum <- dd %>%
+  group_by(month_created) %>%
+  summarise(n = n())%>%
+  rbind(add) %>%
+  arrange(factor(month_created, levels = dates))
+
+dd_sum$month_created <- factor(dd_sum$month_created, levels = dates)
+
+ggplot(dd_sum) +
+  geom_bar(aes(x = month_created, y = n), stat = 'identity') +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 0.95), 
+          legend.position = 'none') +
+  labs(x = 'Month Created', y = 'Number of Workspaces',
+         title = 'Historical Records of Deleted, Inactive, and Terminated Workspaces',
+       subtitle = 'No longer in use')
+
 ```
 
 \newpage
