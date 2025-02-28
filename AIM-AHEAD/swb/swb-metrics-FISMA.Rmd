@@ -195,9 +195,14 @@ Inactive users are pending verification of AIM-AHEAD affiliation.
 #         align = 'l')
 
 # PIE CHART
+
+inactive <- users_clean %>% filter(status == 'inactive') %>% nrow()
+users_clean <- users_clean %>%
+  filter(!grepl('inactive', status)) 
+
 users_clean %>%
   group_by(status) %>%
-  mutate(status = gsub('pending|inactive', 'Pending verification of AIM-AHEAD affiliation', status),
+  mutate(status = gsub('pending', 'Pending verification of AIM-AHEAD affiliation', status),
          status = gsub('active', 'Active', status)) %>%
   summarise(n = n_distinct(uid)) %>% 
   ggplot(aes(x="", y=n, fill=status)) +
@@ -207,8 +212,10 @@ users_clean %>%
     coord_polar(theta = "y") +
     theme_void() +
     labs(fill = "User Status",
-         title = "Number of users by status",
-         subtitle = paste0(n_distinct(users_clean$uid), ' total users'))
+         title = paste0("Number of users by status; ", n_distinct(users_clean$uid), ' total users'))
+
+print(paste0(inactive, 
+             ' users did not respond to follow-ups regarding AIM-AHEAD affiliation and have been removed. They are not represented in this chart.'))
   
 
 ```
