@@ -1,6 +1,7 @@
 # res-reports
 
 This repository contains R code for creating monthly metrics reports for the SWB platform. The directions below correspond to AIM AHEAD. 
+The GIC metrics reports are not run, but a similar file and process exists. 
 
 ### Setting up the repository for the first time
 1. Clone the repository
