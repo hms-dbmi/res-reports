@@ -22,9 +22,6 @@ workspaces <- read.csv('../db-exports/aa-fisma-environments.csv')
 studies <- read.csv('../db-exports/aa-fisma-studies.csv')
 studyperm <- read.csv('../db-exports/aa-fisma-studypermissions.csv')
 
-#d1 <- read.csv('../db-exports/FISMA-PROD-FAILED.csv')
-#d2 <- read.csv('../db-exports/FISMA-PROD-TERMINATED.csv')
-#d3 <- read.csv('../db-exports/delete.csv')
 
 library(tidyverse)
 library(knitr)
@@ -415,13 +412,13 @@ There are a number of workspaces that have been deleted due to Termination (user
 ```{r echo= FALSE}
 
 
-d1 <- read.csv('../db-exports/deleted-instances/FAILED-deletedSept2023.csv') %>% select(name, description, createdAt)
-d2 <- read.csv('../db-exports/deleted-instances/TERMINATED-deletedSept2023.csv') %>% select(name, description, createdAt)
-d3 <- read.csv('../db-exports/deleted-instances/deletedOct2023.csv') %>% select(name, description, createdAt)
-d4 <- read.csv('../db-exports/deleted-instances/TERMINATING_FAILED-deletedJan2025csv.csv') %>% select(name, description, createdAt)
-d5 <- read.csv('../db-exports/deleted-instances/STARTING_FAILED-deletedJan2025.csv') %>% select(name, description, createdAt)
-d6 <- read.csv('../db-exports/deleted-instances/STOPPING_FAILED-deletedJan2025.csv') %>% select(name, description, createdAt)
-d7 <- read.csv('../db-exports/deleted-instances/FAILED-deletedJan2025.csv') %>% select(name, description, createdAt) 
+d1 <- read.csv('../deleted-instances/FAILED-deletedSept2023.csv') %>% select(name, description, createdAt)
+d2 <- read.csv('../deleted-instances/TERMINATED-deletedSept2023.csv') %>% select(name, description, createdAt)
+d3 <- read.csv('../deleted-instances/deletedOct2023.csv') %>% select(name, description, createdAt)
+d4 <- read.csv('../deleted-instances/TERMINATING_FAILED-deletedJan2025csv.csv') %>% select(name, description, createdAt)
+d5 <- read.csv('../deleted-instances/STARTING_FAILED-deletedJan2025.csv') %>% select(name, description, createdAt)
+d6 <- read.csv('../deleted-instances/STOPPING_FAILED-deletedJan2025.csv') %>% select(name, description, createdAt)
+d7 <- read.csv('../deleted-instances/FAILED-deletedJan2025.csv') %>% select(name, description, createdAt) 
 
 terminated <- workspaces_clean %>% filter(status == "TERMINATED") %>% select(name, description, createdAt) %>% mutate(createdAt = as.character(createdAt))
 
@@ -514,16 +511,16 @@ Computational resources provided per group:
 ```{r echo = FALSE}
 instance_mapping <- read.csv('../mappings/instance_type_mapping.csv')
 
-d4 <- read.csv('../db-exports/deleted-instances/TERMINATING_FAILED-deletedJan2025csv.csv') %>%
+d4 <- read.csv('../deleted-instances/TERMINATING_FAILED-deletedJan2025csv.csv') %>%
   select(id, name, createdAt, createdBy, description, 
          envTypeConfigId, indexId,  projectId, status, studyIds, updatedAt, instanceType)
-d5 <- read.csv('../db-exports/deleted-instances/STARTING_FAILED-deletedJan2025.csv') %>%
+d5 <- read.csv('../deleted-instances/STARTING_FAILED-deletedJan2025.csv') %>%
   select(id, name, createdAt, createdBy, description, 
          envTypeConfigId, indexId,  projectId, status, studyIds, updatedAt, instanceType)
-d6 <- read.csv('../db-exports/deleted-instances/STOPPING_FAILED-deletedJan2025.csv') %>%
+d6 <- read.csv('../deleted-instances/STOPPING_FAILED-deletedJan2025.csv') %>%
   select(id, name, createdAt, createdBy, description, 
          envTypeConfigId, indexId,  projectId, status, studyIds, updatedAt, instanceType)
-d7 <- read.csv('../db-exports/deleted-instances/FAILED-deletedJan2025.csv') %>%
+d7 <- read.csv('../deleted-instances/FAILED-deletedJan2025.csv') %>%
   select(id, name, createdAt, createdBy, description, 
          envTypeConfigId, indexId,  projectId, status, studyIds, updatedAt, instanceType)
 
