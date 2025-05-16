@@ -67,8 +67,10 @@ project_groupings <- c('Admin' = 'Development & Testing',
           'DataInfrastructureandCapacityBuilding' =  'Data Infrastructure and Capacity Building',
           'PilotTamilMedCognetics' = 'AIM-AHEAD Pilot Projects',
           'ResearchFellowship' = 'AIM-AHEAD Research Fellowship Cohort 1',
+          'ResearchFellowshipC3' = 'AIM-AHEAD Research Fellowship Cohort 3',
           'DSTCPRIME' = 'DSTC Prime Fellowship',
           'PilotCartwrightGunviolence' = 'AIM-AHEAD Pilot Projects', 
+          'HubSpecificPilotProject' = 'AIM-AHEAD Pilot Projects',
           'tianxiharmonization2' = 'Other Projects',
           'AWS' = 'Other Projects',
           'testingteaching' = 'AIM-AHEAD General Consortium Use, Training, & Demos',
@@ -78,6 +80,8 @@ project_groupings <- c('Admin' = 'Development & Testing',
   as.data.frame() 
 colnames(project_groupings) <- "Project_Group"
 project_groupings$projectId = rownames(project_groupings)
+project_groupings <- project_groupings %>% add_row(Project_Group = c('AIM-AHEAD CLINAQ', 'Development & Testing'),
+                                                   projectId = c('CLINAQ', 'BDC'))
 
 ```
 
@@ -381,7 +385,7 @@ workspaces_clean %>%
 ```
 The below plot is a more accurate representation of the number of workspaces that have recently been used. 
 It does not include terminated or deleted workspaces.
-```{r}
+```{r echo = FALSE}
 workspaces_clean %>%
   mutate(type = gsub(x = envTypeConfigId, '-.*$|_.*$', ''), 
          type = str_to_upper(type), 
@@ -476,6 +480,7 @@ w <- workspaces_clean %>%
                              ifelse(grepl('SAGEMAKER|RAPIDS|TEST|KHALIFALLM', type), 'SAGEMAKER', 
                                           ifelse(grepl('WINDOWS', type), 'WINDOWS', 
                                                        ifelse(grepl('LINUX', type), 'LINUX', 'OTHER'))))) %>%
+  filter(status != 'TERMINATED') %>%
   group_by(type, Project_Group) %>%
   summarise(n_workspaces = n_distinct(id)) %>%
   arrange(desc(n_workspaces))
